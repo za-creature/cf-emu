@@ -1,0 +1,8 @@
+reporter: ['html']
+include: ['**/*.js']
+exclude: ['conftest.js', '**/*.test.js']
+check-coverage: true
+branches: 97.5
+functions: 97.5
+lines: 97.5
+statements: 97.5

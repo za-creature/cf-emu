@@ -1,0 +1,3 @@
+require: ['conftest.js']
+spec: ['**/*.test.js']
+ignore: ['node_modules/**/*', 'fixtures/**/*']

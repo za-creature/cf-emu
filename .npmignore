@@ -1,0 +1,8 @@
+/.github
+/coverage
+/fixtures
+/conftest.js
+/mocharc.yml
+
+.*
+*.test.js
