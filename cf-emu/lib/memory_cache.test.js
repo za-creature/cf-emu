@@ -1,3 +1,4 @@
+let {Request, Response} = require('../runtime')
 let MemoryCache = require('./memory_cache')
 
 let {assert} = require('chai')
@@ -220,7 +221,7 @@ describe('MemoryCache', () => {
 
 
     describe('add', () => {
-        let server, port = Number(process.env.TEST_PORT)
+        let server, port = TEST_PORT
         before(next => server = createServer((req, res) => {
             if(~req.url.indexOf('error'))
                 res.statusCode = 400

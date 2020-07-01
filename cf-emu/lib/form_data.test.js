@@ -9,7 +9,7 @@ describe('FormData', () => {
         assert.isFunction(FormData)
         let data = new FormData()
         assert.instanceOf(data, FormData)
-        for(let proto of ['on', 'pipe', 'read', 'resume'])
+        for(let proto of ['on', 'pipe', 'resume'])
             assert.isFunction(data[proto])
     })
     it('is a one-time-use readable stream', async () => {

@@ -1,15 +1,15 @@
-let deploy = require('./worker')
-let {translate, register} = deploy
+let {fetch, Headers, Request, Response} = require('./runtime')
+let serve = require('./worker')
+let {translate, compile} = serve
 let {Stackless, buffer, stream} = require('./lib/util')
 
 let {assert} = require('chai')
 let {createServer} = require('http')
 let {createConnection} = require('net')
-let {relative, resolve} = require('path')
 
 
 describe('server', () => {
-    let port = Number(process.env.TEST_PORT)
+    let port = TEST_PORT
     describe('translate', () => {
         let handlers, options
         beforeEach(() => (handlers = [], options = {}))
@@ -157,7 +157,7 @@ describe('server', () => {
 
         it('implements non-blocking event.waitUntil()', async () => {
             let delayed = false
-            let timer = new Promise(res => setTimeout(res, 20)).then(() => {
+            let timer = sleep(20).then(() => {
                 delayed = true
                 throw new Stackless('foo')
             })
@@ -232,77 +232,106 @@ describe('server', () => {
     })
 
 
-    describe('register', () => {
-        let handler = 'addEventListener("fetch", () => {})'
-        let runtime = require.resolve('./runtime'), old = require.cache[runtime]
-        beforeEach(() => delete require.cache[runtime])
-        after(() => require.cache[runtime] = old)
+    describe('compile', () => {
+        let defaults = {
+            require: [],
+            timeout: 10
+        }
+        it('throws on syntax error', () => assert.throws(() =>
+            compile('}', {}, defaults)
+        , 'token'))
 
-        it('imports the module and returns a HTTP handler', () => {
-            let result = register({code: `global.CF_EMU_TEST = 'a';${handler}`})
-            assert.equal(global['CF_EMU_TEST'], 'a')
-            assert.isFunction(result)
-            assert.equal(result.length, 2)
-        })
-
-        it('imports custom runtimes', () => {
-            register({
-                code: `global.CF_EMU_TEST = Request;${handler}`,
-                require: ['chai', './' + relative(process.cwd(),
-                    resolve(__dirname, 'fixtures/custom_runtime.test'),
-                )]
-            })
-            assert.equal(global['CF_EMU_TEST', 'foo'])
-        })
-
-        it('exports bindings', async () => {
-            let bindings = {a: Symbol(), b: Symbol()}
-            register({code: `global.CF_EMU_TEST = {a, b};${handler}`, bindings})
-            assert.deepEqual(global['CF_EMU_TEST'], bindings)
-            assert.include(global, bindings)
-        })
-
-        it('imports the default runtime', () => {
-            let old = global.Request
-            delete global.Request
-            try {
-                register({code: handler})
-                assert.isFunction(global.Request)
-            } finally {
-                global.Request = old
-            }
-        })
-
-        it('throws on syntax error', () => assert.throws(
-            () => register({code: 'wat('})
-        , SyntaxError))
-
-        it('throws on unhandled exception', () => assert.throws(
-            () => register({code: 'throw new Error("blah")'})
+        it('throws on unhandled exception', () => assert.throws(() =>
+            compile('throw new Error("blah")', {}, defaults)
         , 'blah'))
 
         it('throws when there are no fetch handlers', async () => {
-            await assert.throws(() => register({
-                code: 'global.CF_EMU_TEST = "c"'
-            }), 'define')
-            assert.equal(global['CF_EMU_TEST'], 'c')
+            let out = {}
+            await assert.throws(() =>
+                compile('out.CF_EMU_TEST = "c"', {out}, defaults)
+            , 'fetch')
+            assert.equal(out['CF_EMU_TEST'], 'c')
+        })
+
+        let handler = 'addEventListener("fetch", () => {})'
+        it('returns a HTTP handler', () => {
+            let result = compile(handler, {}, defaults)
+            assert.isFunction(result)
+            assert.lengthOf(result, 2)
+        })
+
+        it('exports bindings', () => {
+            let out = {}
+            let x = {a: Symbol(), b: Symbol()}
+            compile(`out.CF_EMU_TEST = {a, b};${handler}`, {out, ...x}, defaults)
+            assert.deepEqual(out['CF_EMU_TEST'], x)
+        })
+
+        it('runs code in a sandbox', () => {
+            let out = {}
+            compile('Object.assign(out, this)', {out}, defaults)
+            assert.containsAllKeys(out, ['setTimeout', 'addEventListener'])
+            assert.doesNotHaveAnyKeys(out, ['global', 'process', 'queueMicrotask'])
+        })
+
+        it('throws on timeout', async () => {
+            let out = {}
+            await assert.throws(() =>
+                compile('for(let i=0;;i++)out.CF_EMU_TEST = i++', {out}, defaults)
+            , 'timed out')
+            assert.isAbove(out['CF_EMU_TEST'], 100)
+        })
+
+        it('imports the default runtime', () => {
+            let out = {}
+            compile(`out.CF_EMU_TEST = Request;${handler}`, {out}, defaults)
+            assert.strictEqual(out['CF_EMU_TEST'], Request)
+        })
+
+        it('imports custom runtimes', () => {
+            let out = {}
+            compile(`out.CF_EMU_TEST = [Request, assert];${handler}`, {out}, {
+                require: ['chai',
+                          './cf-emu/runtime.js',
+                          './fixtures/custom_runtime.test'],
+                timeout: 10
+            })
+            assert.deepEqual(out['CF_EMU_TEST', ['foo', assert]])
         })
     })
 
 
-    describe('deploy', () => {
+    describe('serve', () => {
         let input = 'addEventListener("fetch", e => e.respondWith(new Response("hello world")))'
         let worker
+        let event = (event, target=worker) => new Promise(
+            (res, rej) => target.on('error', err => rej(err))
+                                .on(event, val => res(val)))
+
         beforeEach(() => worker = null)
-        //afterEach(() => worker && worker.kill().catch(() => {}))
 
         it('starts a http server on the configured port', async () => {
-            worker = deploy({input, port})
-            await worker.deployed
+            worker = serve(input, {port})
+            await event('ready')
             let res = await fetch(`http://localhost:${port}`)
             assert.equal(await res.text(), 'hello world')
-            await worker.close()
-            worker = null
+            let close = event('close')
+            worker.emit('stop')
+            await close
+        })
+
+        it('gracefully shuts down', async () => {
+            worker = serve(input, {port})
+            await event('ready')
+            let req = createConnection(port),
+                res = buffer.consume(req)
+            await event('connect', req)
+            worker.emit('stop')
+            await new Promise(res => setTimeout(res, 25))
+            req.end('HEAD / HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
+            res = await res
+            assert(res.toString().startsWith('HTTP/1.1 503'))
+            await event('close')
         })
 
         it('supports bindings', async () => {
@@ -322,45 +351,37 @@ describe('server', () => {
                 'addEventListener("fetch", e => e.respondWith(new Response(response)))',
                 '--sep--`'
             ]
-            worker = deploy({input: body.join('\r\n'), boundary: 'sep', port})
-            await worker.deployed
+            worker = serve(body.join('\r\n'), {boundary: 'sep', port})
+            await event('ready')
             let res = await fetch(`http://localhost:${port}`)
             assert.equal(await res.text(), 'leaking secrets')
-            await worker.close()
-            worker = null
-        })
-
-        it('gracefully shuts down on SIGINT', async () => {
-            worker = deploy({input, port})
-            await worker.deployed
-            let req = createConnection(port),
-                res = buffer.consume(req)
-            await new Promise((res, rej) => req.once('connect', res)
-                                               .once('error', rej))
-            assert.equal(worker.close(), worker)
-            await new Promise(res => setTimeout(res, 25))
-            req.end('HEAD / HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
-            res = await res
-            assert(res.toString().startsWith('HTTP/1.1 503'))
-            await worker
-            worker = null
+            worker.emit('stop')
+            await event('close')
         })
 
         it('throws an error when the server could not be started', async () => {
             let server = createServer(() => {})
-            try {
-                await new Promise(res => server.listen(port, res))
-                await assert.throws(() => deploy({input, port}), 'code 1')
-            } finally {
-                await new Promise(res => server.close(res))
-            }
+            await new Promise(res => server.listen(port, res))
+            worker = serve(input, {port})
+            let err = await event('close')
+            assert.include(err.message, 'code 1')
+            await new Promise(res => server.once('close', res).close())
         })
 
         it('throws an error when the server is killed', async () => {
-            worker = deploy({input, port})
-            await worker.deploy
-            await assert.throws(() => worker.kill(), 'signal SIGKILL')
-            worker = null
+            worker = serve(input, {port})
+            await event('ready')
+            worker.emit('stop')
+            worker.emit('stop')
+            let err = await event('close')
+            assert.include(err.message, 'signal SIGKILL')
+        })
+
+        it('handles stream errors', async () => {
+            worker = serve(input, {port})
+            worker.emit('stop')
+            let err = await event('close')
+            assert.include(err.message, 'signal SIGINT')
         })
     })
 })

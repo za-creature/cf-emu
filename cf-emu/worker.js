@@ -1,14 +1,19 @@
-let cli = require('./cli')
-let {buffer, random_hex, stream, http_503} = require('./lib/util')
+let {defaults} = require('./cli')
+let {buffer, http_503, random_hex, stream, Thread} = require('./lib/util')
 let {parse, piccolo} = require('./lib/multipart')
+let {bugs} = require('./package.json')
+let {fetch, Request, Response, URL} = require('./runtime')
 
 let {spawn} = require('child_process')
 let {createServer} = require('http')
+let {tmpdir} = require('os')
 let {relative, resolve} = require('path')
+let vm = require('vm')
 
 
+/* translates one or more self.on('fetch') `handlers` (live binding) and its
+   associated `options` object into a http.server.on('request') handler */
 let translate = (handlers, options) => (req, res) => {
-    // translate between http.server.on('request') and self.on('fetch')
     let respond = response => {
         if(!(response instanceof Response))
             return error(new Error('invalid response type'))
@@ -19,7 +24,12 @@ let translate = (handlers, options) => (req, res) => {
         if(response.body && typeof response.body.pipe == 'function')
             response.body.pipe(res)
                 .on('finish', () => res.end())
-                .on('error', /*istanbul ignore next*/err => (console.error(err.stack || err), res.end()))
+                .on('error', /*istanbul ignore next*/ err => {
+                    console.error('unhandled error in translate body pipe;' +
+                                  ` please report this at \n${bugs.url}\n`)
+                    console.error(err)
+                    res.end()
+                })
         else
             response.arrayBuffer().then(buff => res.end(Buffer.from(buff)), error)
     }
@@ -46,14 +56,15 @@ let translate = (handlers, options) => (req, res) => {
 
     // incoming request
     let {method} = req
-    let headers = Object.assign({
+    let headers = {
         // https://support.cloudflare.com/hc/en-us/articles/200170986-How-does-Cloudflare-handle-HTTP-Request-headers-
+        ...req.headers,
         'cf-ipcountry': options.location,
         'cf-connecting-ip': req.socket.remoteAddress,
         'x-forwarded-for': req.socket.remoteAddress,
         'x-forwarded-proto': 'http',
-        'cf-ray': `${random_hex(16)}-DEV`
-    }, req.headers)
+        'cf-ray': `${random_hex(16)}-DEV`,
+    }
     let url = `http://${headers.host || req.socket.localAddress}${req.url}`
     let body = method != 'GET' && method != 'HEAD' ? req : null
     let request = new Request(url, {method, headers, body})
@@ -80,7 +91,7 @@ let translate = (handlers, options) => (req, res) => {
                     ' `waitUntil()`:\n\n' + err.stack
                 ))
             else
-                console.warn(`waitUntil() called with '${promise}' `
+                console.warn(`\`waitUntil()\` called with '${promise}' `
                              + 'which is not a Promise')
         }
     }
@@ -91,10 +102,9 @@ let translate = (handlers, options) => (req, res) => {
         try {
             handler(fetchEvent)
         } catch(err) {
-            // the spec linked immediately above is unclear on how errors
-            // interact with multiple handlers; to be safe, assume that the
-            // entire worker is FUBAR on the first unhandled error and
-            // don't call the others
+            // the first spec linked above is unclear on how errors interact
+            // with multiple handlers; to be safe, assume that the whole worker
+            // is FUBAR on the first unhandled error and don't call the others
             // TODO: validate this against cloudflare workers behavior
             called = true, error(err)
         }
@@ -110,116 +120,108 @@ let translate = (handlers, options) => (req, res) => {
 
     /*istanbul ignore if*/
     if(request.bodyUsed)
-        return error(new Error('none of the registered `on(\'fetch\')`' +
-                              ' handlers called `ev.respondWith()` but the' +
-                              ' request body was already consumed by one of' +
-                              ' the handlers; please report this bug here:\n\n' +
-                              ' https://github.com/za-creature/cf-emu/issues\n\n'))
+        return error(new Error('none of the registered `on(\'fetch\')` handlers' +
+                              ' called `ev.respondWith()` but the request body' +
+                              ' was already consumed by one of the handlers;' +
+                              ` please report this at \n${bugs.url}\n`))
 
     passthrough = false
-    console.warn(`respondWith() not called, forwarding to ${options.origin}`)
+    console.warn(`\`respondWith()\` not called; forwarding to ${options.origin}`)
     fetch(new URL(req.url, options.origin), {method, headers, body}).then(respond, error)
 }
 
 
-function register(options) {
+/* evaluates a `code` fragment in the worker environment defined by `options`
+   and returns a http.server.on('request')-compatible handler
+   WARNING: this functions taints the process with user code and should only
+   be called ONCE per process */
+function compile(code, globals, options) {
+    // import default runtime and export the non-sandboxed console
+    let ctx = Object.assign(require('./runtime'), {console})
+    let {handlers} = ctx
+    delete ctx.handlers
+
     // import custom runtimes
-    for(let path of options.require || []) {
+    for(let path of options.require) {
         if(path.startsWith('.')) {
             path = relative(__dirname, resolve(process.cwd(), path))
-            /*istanbul ignore else*/
             if(!path.startsWith('.'))
                 path = './' + path
         }
-        require(path)
+        Object.assign(ctx, require(path))
     }
 
     // export bindings
-    for(let [key, val] of Object.entries(options.bindings || {}))
-        global[key] = val
+    Object.assign(ctx, globals)
 
-    // import default runtime
-    let handlers = require('./runtime')
-    /*istanbul ignore if*/
-    if(handlers.length)
-        throw new Error('bad test case: runtime already imported')
+    // evaluate worker code in sandbox
+    ctx = vm.createContext(ctx, {codeGeneration: {strings: false,
+                                                  wasm: false}})
+    vm.runInContext(code, ctx, {filename: `${tmpdir()}/${random_hex(12)}.js`,
+                                timeout: options.timeout,
+                                breakOnSigint: true})
 
-    // import code as a temporary module and translate on('fetch') handlers
-    new module.constructor()._compile(options.code, `/tmp/${random_hex(12)}.js`)
+    // translate on('fetch') handlers
     if(!handlers.length)
-        throw new Error('worker did not define any on(`fetch`) handlers')
+        throw new Error('worker did not define any `on(`fetch`)` handlers')
     return translate(handlers, options)
 }
 
 
-/* spawns a http server that serves a worker in a subprocess, and returns a
-Promise that waits for it to exit, with the following additional methods:
-
-.deployed: a Promise that resolves once the http server is running
-.close(): stops the server once all outstanding requests are fulfilled
-.kill(): immediately stops the server (unless kernel errors occur) */
-function deploy(options) {
+/* spawns http-server connected to a worker in a subprocess; returns a thread */
+function serve(input, options) {
     // add default command line options
-    options = Object.assign(cli.parse([]), options)
-    let input = stream(options.input)
-    delete options.input
+    options = defaults(options)
+    let symbol = random_hex(256)
 
-    // port scanner
-    let deploy_cb
-    let deployed = new Promise((res, rej) => deploy_cb = err => err ? rej(err) : res())
-
-    // child process
-    let listen_symbol = random_hex(256)
-    let worker = spawn(process.execPath,
-                       [__filename, listen_symbol, JSON.stringify(options)],
-                       {stdio: ['pipe', 'inherit', 'inherit', 'ipc']})
-    worker.on('message', msg => msg == listen_symbol && deploy_cb())
-    worker.on('exit', (code, signal) => {
+    // spawn child process with user provided code and options
+    let config = JSON.stringify(Object.assign({symbol}, options))
+    let worker = spawn(process.execPath, [__filename], {
+                       env: {_: Buffer.from(config).toString('base64')},
+                       stdio: ['pipe', 'inherit', 'inherit', 'ipc']})
+    worker.on('message', msg => msg == symbol && thread.emit('ready'))
+    worker.on('close', (code, signal) => {
         worker = null
         let reason
         if(signal !== null)
             reason = `by signal ${signal}`
         else if(code)
             reason = `with exit code ${code}`
-        if(reason) {
-            reason = new Error(`worker terminated ${reason}`)
-            deploy_cb(reason)
-            cb(reason)
-        } else {
-            deploy_cb(new Error('worker was shut down'))
-            cb()
-        }
+        else /*istanbul ignore if*/ if(!stop)
+            reason = `prematurely; please report this at \n${bugs.url}\n`
+        if(reason)
+            reason =  new Error(`worker terminated ${reason}`)
+        thread.emit('close', reason)
     })
-    input = stream(input)
-    input.pipe(worker.stdin)
-
-    // child process promise
-    let cb
-    let main = new Promise((res, rej) => cb = err => err ? rej(err) : res())
+    stream(input).pipe(worker.stdin).on('error', err => {
+        console.error(err.stack)
+        thread.emit('stop')
+    })
 
     // public interface
-    let result = deployed.catch(() => {}).then(() => main)
-    return Object.assign(result, {
-        deployed,
-        close: () => (worker && worker.kill('SIGINT'), result),
-        kill: () => (worker && worker.kill('SIGKILL'), result)
+    let thread = new Thread('worker'), stop = false
+    return thread.on('stop', () => {
+        worker && worker.kill(stop ? 'SIGKILL' : 'SIGINT')
+        stop = true
     })
 }
 
 
+/* this runs in the subprocess spawned by deploy */
 async function main() {
     try {
         // load worker
-        let listen = process.argv[2]
-        let options = JSON.parse(process.argv[3])
-        options.bindings = {}
-        if(options.boundary)
-            options.code = await parse(await piccolo({
+        let options = JSON.parse(Buffer.from(process.env._, 'base64'))
+        delete process.env._
+        let bindings = {}
+        let count = 0
+        process.stdin.on('data', chunk => count += chunk.length)
+        let code = options.boundary
+            ? await parse(await piccolo({
                 'content-type': `multipart/form-data; boundary=${options.boundary}`
-            }, process.stdin), options.bindings)
-        else
-            options.code = (await buffer.consume(process.stdin)).toString('utf-8')
-        let handler = register(options)
+            }, process.stdin), bindings)
+            : (await buffer.consume(process.stdin)).toString('utf-8')
+        let handler = compile(code, bindings, options)
 
         // spawn server
         await new Promise((res, rej) => {
@@ -236,15 +238,15 @@ async function main() {
                 // completed (for well behaved clients that send 'connection: close'
                 // on their last request), or after the http.server keep-alive
                 // timeout expires (defaults to 5 seconds)
-                process.once('SIGINT', () => server.on('request', http_503)
-                                                   .off('request', handler)
-                                                   .close())
-                process.send(listen)
+                process.on('SIGINT', () => server.on('request', http_503)
+                                                 .removeListener('request', handler)
+                                                 .close())
+                process.send(options.symbol)
             })
         })
         process.exit(0)
     } catch(err) {
-        console.error(err.stack || err)
+        console.error(err)
         process.exit(1)
     }
 }
@@ -253,4 +255,4 @@ async function main() {
 if(require.main === module)
     main()
 else
-    module.exports = Object.assign(deploy, {translate, register})
+    module.exports = Object.assign(serve, {translate, compile})

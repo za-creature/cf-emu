@@ -1,12 +1,14 @@
+/* global WebAssembly:false */
+let {FormData} = require('../runtime')
 let {buffer} = require('./util')
 
 let Busboy = require('busboy')
 
 
-// these belong to runtime.js, but they are intentionally not exported in order
+// these belong to runtime.js, but they are intentionally not exposed in order
 // to mirror CF behavior: instances are available as results of formData().get()
-let Blob = module.exports.Blob = global.Blob || require('fetch-blob')
-let File = module.exports.File = global.File || class File extends Blob {
+let Blob = exports.Blob = global.Blob || require('fetch-blob')
+let File = exports.File = global.File || class File extends Blob {
     constructor(parts, name, options={}) {
         let lastModified
         if(options.lastModified) {
@@ -33,7 +35,7 @@ let File = module.exports.File = global.File || class File extends Blob {
 // parses a multpart body that contains the worker and bindings; input should
 // be the same as what you send to cloudflare when uploading a worker with
 // bindings
-module.exports.parse = async function parse(form, out_bindings={}) {
+exports.parse = async function parse(form, out_bindings) {
     let type, metadata = form.get('metadata')
     if(!metadata)
         throw new Error('multipart body does not contain \'metadata\' part')
@@ -74,13 +76,14 @@ module.exports.parse = async function parse(form, out_bindings={}) {
                                 ` referenced by ${debug} not present`)
             value = await WebAssembly.compile(await form.get(binding.part).arrayBuffer())
         } else if(binding.type == 'text_blob') {
-            // these are not specified and as of 2020-06-01, not even recognized
-            // on the frontend (this means that using text_blob bindings in your
-            // worker will effectively disable the live code editor in CF)
-            // since it's unclear what these are intended to be (bliss uses one
-            // to optionally store a base128 encoded asset archive), ignore this
-            // binding if the part is missing, as that is the only functionality
-            // that is proven to be implemented upstream
+            // these binding types are not specified and, as of 2020-06-01 are
+            // not even recognized on the frontend (this means that using
+            // `text_blob` bindings in your worker will effectively disable the
+            // live code editor); since it's unclear what these are intended to
+            // be (they seem to be linked to namespace manifests, and `bliss``
+            // uses one to optionally store a base128 encoded asset archive),
+            // ignore this binding if the `part` is missing, as that is the
+            // only functionality that is proven to be implemented upstream
             /*istanbul ignore else*/
             if(binding.part) {
                 if(!form.has(binding.part))
@@ -101,15 +104,13 @@ module.exports.parse = async function parse(form, out_bindings={}) {
 }
 
 
-// basically request.formData() but also used for API multipart parsing
-module.exports.piccolo = async function piccolo(headers, body) {
-    /*istanbul ignore if*/
-    let FormData = global.FormData || require('./form_data')
+// used to patch Request.prototype.formData() and by the API server
+exports.piccolo = async function piccolo(headers, body) {
     let result = new FormData()
     if(body) {
         let files = []
         await new Promise((res, rej) => {
-            let parser = new Busboy({'headers': headers})
+            let parser = new Busboy({'headers': headers, 'limits': {'fieldSize': Infinity}})
             parser.on('file', (name, stream, filename, _, type) => files.push(
                 buffer(true).consume(stream).then(parts => result.append(
                     name,
