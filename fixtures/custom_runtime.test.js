@@ -1,1 +1,1 @@
-global.Request = 'foo'
+exports.Request = 'foo'

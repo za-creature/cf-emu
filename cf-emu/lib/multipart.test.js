@@ -1,4 +1,6 @@
-let {Blob, File, parse, piccolo} = require('./multipart')
+/* global WebAssembly:false */
+let {FormData} = require('../runtime')
+let {parse, piccolo, Blob, File} = require('./multipart')
 let {stream} = require('./util')
 
 let {assert} = require('chai')
@@ -198,7 +200,7 @@ describe('multipart', () => {
             let form = valid_request([{name: 'test', type: 'wasm_module', part: 'blob'}])
             form.append('blob', new File([
                 Buffer.from('AGFzbQEAAAABBwFgAn9/AX8DAgEABwcBA2FkZAAACgkBBwAgACABags=', 'base64')
-            ], 'add.wasm'), 'file.wasm')
+            ], 'add.wasm'))
 
             let result = {}
             await parse(form, result)

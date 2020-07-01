@@ -1,8 +1,9 @@
+[![tests](https://github.com/za-creature/cf-emu/workflows/test/badge.svg?branch=master&event=push)](https://github.com/za-creature/cf-emu/actions?query=workflow%3Atests+branch%3Amaster)
+[![coverage](https://github.com/za-creature/cf-emu/workflows/coverage/badge.svg?branch=master&event=push)](https://za-creature.github.io/cf-emu)
+
 # cf-emu
 A local emulator for [cloudflare workers](https://www.cloudflare.com/products/cloudflare-workers/)
 
-[![tests](https://github.com/za-creature/cf-emu/workflows/tests/badge.svg?branch=master&event=push)](https://github.com/za-creature/cf-emu/actions?query=workflow%3Atests+branch%3Amaster)
-[![coverage](https://github.com/za-creature/cf-emu/workflows/coverage/badge.svg?branch=master&event=push)](https://za-creature.github.io/cf-emu)
 
 ## Installation
 ```sh
@@ -10,7 +11,9 @@ npm install --save-dev cf-emu
 ```
 
 ## Known differences
-* `eval()` and `new Function()` are allowed
+* requests can consume arbitrary amounts of CPU time
+* while `eval()` and `Function()` are disabled to prevent accidental use, this
+  can be easily bypassed and should not be relied upon
 * `Date.now()` is not throttled
 * `setTimeout()` & co are supported regardless of context
 * `TextDecoder` supports `utf-8`, `utf-16le` and `latin1`, cloudflare only
@@ -57,19 +60,23 @@ api key based authentication) environment variables are set. They don't have to
 be valid cloudflare credentials (a simple string match is performed) however
 they need to be defined and sent when deploying new code. You may bypass this
 behavior by setting the `--unsafe` flag though you should be aware that
-`fetch()` by default works across domain if the destination is `localhost`
+`fetch()` works by default across domain if the destination is `localhost`
 
 
 ### As a test helper
+If you import `cf-emu/runtime` in your unit tests and assign it to `global`, the
+workers runtime API will be globally available to the code that you are testing
+(assuming you do this before importing any code to be tested, for example in a
+test config file).
 
-You can also import `cf-emu/runtime` in your unit tests to export all
-implemented runtime APIs as globals.
+If you want to manually invoke your fetch listeners (e.g. for unit tests), a
+list of currently registered handlers is available as the non-enumerable
+`handlers` export of the runtime module (it's an `Array` of `function`s). Note
+that this `Array` will be mutated over time by calls to `addEventListener` and /
+or `removeEventListener`, though you can safely discard all registered handlers
+(e.g. for test clean-up) by setting its `length` to 0 (assigning it to `[]` will
+not work as that just replaces your imported copy):
 
-If you want to manually invoke your fetch listeners, they are available as the
-default export of the runtime module as an `Array` of `function`s. Note that
-this Array can be mutated over time by additional calls to `addEventListener` /
-`removeEventListener` and its length can be safely set to 0 to remove all
-handlers:
 
 `handler.js`:
 ```javascript
@@ -80,23 +87,19 @@ addEventListener('fetch', ev => {
 
 `handler.test.js`:
 ```javascript
-describe('handler.js', () => {
-    let handlers
-    before(() => {
-        // the runtime only replaces objects that don't exist, though if you are
-        // relying on this in multiple tests, make sure you flush `require.cache`
-        global.Response = x => x
-        handlers = require('cf-emu/runtime')
+let handlers = require('cf-emu/runtime')
+let {assert} = require('chai')
 
-        require('./handler.js')
-    })
+describe('handler.js', () => {
+    before(() => require('./handler.js'))
     afterEach(() => handlers.length = 0) // flush all handlers for the next test
 
     it('returns hello world', () => {
         let [first] = handlers
+        assert.isFunction(first, 'did not define an event handler')
         first({
             respondWith(text) {
-                assert.equal(text, 'hello world')
+                assert.equal(text, 'hello world', 'bad response body')
             }
         })
     })
@@ -104,8 +107,8 @@ describe('handler.js', () => {
 ```
 
 Alternatively, you can call `cf-emu` programatically and use `fetch()` to
-interact with your deployed worker, though this is slower because is involves
-subprocesses:
+interact with your deployed worker, though this is significantly slower as it
+involves subprocesses and should only be used for end-to-end tests:
 `integration.test.js`:
 ```javascript
 let emu = require('cf-emu')
@@ -114,13 +117,13 @@ describe('handler.js', () => {
     let instance
     before((next) => {
         instance = emu({
-            input: './handler.js', // you can of course also use multipart here
+            input: './handler.js', // you can use multipart here instead
             port: 8080
         })
-        setTimeout(next, 1000) // wait 1s for the server to start
+        setTimeout(next, 1000) // wait 1 second for the server to start (YMMV!)
     })
     after(() => instance.close())
-    // hint: there is also instance.kill(), but it may break code coverage
+    // hint: there is also instance.kill(), but that could break code coverage
 
     it('returns hello world', async () => {
         let res = await fetch('http://localhost:8080/')
@@ -133,9 +136,9 @@ describe('handler.js', () => {
 I guess if you really want to, I can't exactly stop you from putting a bunch of
 these in standalone mode behind a load balancer, but I definitely won't
 encourage you to do so:
-* for one, while this module is tested for conformance, no real thought has been
-  given to performance, security and memory usage; then again, the same was true
-  for `node.js` itself when it first released so YMMV
+* for one, while this module is somewhat tested for conformance, no real thought
+  has been given to performance, security and memory usage; then again, the same
+  was true for `node.js` itself when it first released so YMMV
 * some parts of the runtime (e.g. the `caches` object) could be considered mocks
   as they don't really do anything useful; this can however be mitigated with
   the `--require` option if you want to implement your own versions

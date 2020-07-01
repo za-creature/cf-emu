@@ -1,9 +1,9 @@
-let {version} = require('./package.json')
+let {bugs, version} = require('./package.json')
 let yargs = require('yargs')
 
 module.exports = yargs
-    .wrap(yargs.terminalWidth()-1)
     .strict()
+    .wrap(yargs.terminalWidth()-1)
     .usage('Usage: cf-emu [-options]\n\n' +
 
            'This emulator implements a subset of the CF workers API,' +
@@ -37,18 +37,34 @@ module.exports = yargs
            ' thus effectively running until ^C.\n\n' +
 
            'Returns 0 on graceful (^C) shutdown, 1 on configuration error, 2' +
-           ' on worker configuration error or 3 on worker crash (without -w)' +
-           ' or forceful (^C^C) termination\n')
+           ' on worker configuration error and 3 on worker crash and / or' +
+           ' forceful (^C^C) termination\n')
     /* options */
     .option('a', {
         alias: 'api',
+        type: 'number',
         nargs: 1,
         desc: 'port the api server listens on'
     })
     .option('b', {
         alias: 'boundary',
+        type: 'string',
         nargs: 1,
         desc: 'the boundary used by the multipart request body'
+    })
+    .option('d', {
+        alias: 'delay',
+        type: 'number',
+        nargs: 1,
+        desc: 'used in combination with -w, limits the rate at which crashed' +
+              ' workers are restarted to once every this many milliseconds',
+        default: 5000
+    })
+    .option('f', {
+        alias: 'forward',
+        type: 'boolean',
+        desc: 'if set, forward all failed requests to origin, regardless of' +
+              ' whether passThroughOnException() is called by a handler or not',
     })
     .option('i', {
         alias: 'input',
@@ -56,12 +72,6 @@ module.exports = yargs
         nargs: 1,
         desc: 'switch to standalone mode and read worker body from this file' +
               ' or stdin if -'
-    })
-    .option('f', {
-        alias: 'forward',
-        type: 'boolean',
-        desc: 'if set, forward all failed requests to origin, regardless of' +
-              ' whether passThroughOnException() is called by a handler or not',
     })
     .option('l', {
         alias: 'location',
@@ -72,6 +82,7 @@ module.exports = yargs
     })
     .option('o', {
         alias: 'origin',
+        type: 'string',
         nargs: 1,
         desc: 'forward requests to this origin http(s) server if no fetch' +
               ' event handler issues a respondWith() or when an error was' +
@@ -79,6 +90,7 @@ module.exports = yargs
     })
     .option('p', {
         alias: 'port',
+        type: 'number',
         nargs: 1,
         desc: 'port the worker server listens on',
         default: 8080
@@ -86,8 +98,18 @@ module.exports = yargs
     .option('r', {
         alias: 'require',
         type: 'string',
-        desc: 'include custom runtime(s) in the worker environment (e.g. to' +
-              ' implement missing functionality or provide your own polyfills)'
+        array: true,
+        desc: 'include one or more custom runtime(s) in the worker ' +
+              ' environment (e.g. to implement missing functionality or' +
+              ' provide your own polyfills)',
+        default: []
+    })
+    .option('t', {
+        alias: 'timeout',
+        type: 'number',
+        nargs: 1,
+        desc: ' max worker initialization time in milliseconds',
+        default: 50
     })
     .option('u', {
         alias: 'unsafe',
@@ -99,19 +121,20 @@ module.exports = yargs
         alias: 'watchdog',
         type: 'boolean',
         desc: 'automatically restart the worker when it crashes (at most' +
-              ' once every 5 seconds)'
+              ' once every `delay` milliseconds)'
     })
     /* guidelines */
     .implies('forward', 'origin')
-    .conflicts('input', ['api', 'unsafe'])
-    .conflicts('boundary', ['api', 'unsafe'])
+    .implies('unsafe', 'api')
+    .conflicts('input', 'api')
+    .conflicts('boundary', 'api')
     /* other options */
     .config('c', 'read command line options from this JSON file instead')
     .help('h', 'show this message and exit')
     .version('v', 'show version number and exit', version)
     .alias({c: 'config', h: 'help', v: 'version'})
     /* groups */
-    .group(['f', 'o', 'p', 'r', 'w'], 'Common options:')
+    .group(['d', 'f', 'l', 'o', 'p', 'r', 't', 'w'], 'Common options:')
     .group(['a', 'u'], 'Options for server mode:')
     .group(['b', 'i'], 'Options for standalone mode:')
     .group(['c', 'h', 'v'], 'Other options:')
@@ -127,7 +150,11 @@ module.exports = yargs
     /* error handling */
     .fail((msg, err) => {
         /*istanbul ignore if*/
-        if(err) throw err
+        if(err) {
+            console.error('unhandled yargs error; please report this at' +
+                          `\n${bugs.url}}\n`)
+            throw err
+        }
         console.log(`cf-emu v${version}`)
         console.log()
         console.log('\x1b[91m%s\x1b[0m', msg)
@@ -135,3 +162,10 @@ module.exports = yargs
         console.log()
         process.exit(1)
     })
+
+module.exports.defaults = (options) => {
+    for(let [key, val] of Object.entries(module.exports.parse([])))
+        if(!(key in options) && key.length > 1 && key.charAt(0) != '$')
+            options[key] = val
+    return options
+}

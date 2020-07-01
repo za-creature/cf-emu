@@ -4,7 +4,7 @@ let BaseFormData = require('form-data')
 let mutate = form => {if(form._used) throw new TypeError('FormData already used')}
 module.exports = class FormData extends BaseFormData {
     constructor() {
-        super()
+        super({maxDataSize: Infinity})
         this._used = false
         this._map = new Map()
         this._files = new Map()
@@ -53,18 +53,21 @@ module.exports = class FormData extends BaseFormData {
     }
 
 
-    /*
-    this object inherits from stream (version 1[^1]) so flush all data before
-    switching from neutral to flowing mode for the first time[^2]
+    /* this object inherits from stream (version 1[^1]) so flush all data
+       before switching from neutral to flowing mode for the first time[^2]
 
-    the object also becomes immutable after this step, because like all streams,
-    it can only be consumed once
+       the object also becomes immutable after this step, because like all
+       streams, it can only be consumed once; to work around the consume-once
+       limitation, you can use `tee()`, which all node streams implement
 
-    to work around this limitation, use `tee()` which all node streams implement
+       note that the underlying implementation[^3] derives from
+       CombinedStream[^4] which does not correctly implement the Readable
+       stream specification, so `read()`` will not work as expected
 
-    [^1]: https://nodejs.org/api/stream.html#stream_readable_wrap_stream
-    [^2]: https://nodejs.org/api/stream.html#stream_two_reading_modes
-    */
+       [^1]: https://nodejs.org/api/stream.html#stream_readable_wrap_stream
+       [^2]: https://nodejs.org/api/stream.html#stream_two_reading_modes
+       [^3]: https://github.com/form-data/form-data
+       [^4]: https://github.com/felixge/node-combined-stream  */
     resume() {
         this._used = true
         for(let key of this._map.keys()) {
@@ -83,9 +86,5 @@ module.exports = class FormData extends BaseFormData {
         if(arguments[0] == 'data')
             setImmediate(() => this.resume())
         return super.on.apply(this, arguments)
-    }
-    /*istanbul ignore next*/read() {
-        this.resume()
-        return super.read.apply(this, arguments)
     }
 }
