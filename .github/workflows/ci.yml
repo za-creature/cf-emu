@@ -1,0 +1,62 @@
+name: tests
+on:
+- push
+jobs:
+  test:
+    strategy:
+      matrix:
+        platform:
+        - ubuntu-latest
+        node:
+        - 8
+        - 10
+        - 12
+        - 14
+    name: test/node ${{ matrix.node }}/${{ matrix.platfornm }}
+    runs-on: ${{ matrix.platform }}
+    steps:
+    # dependencies
+    - uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node }}
+    - uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-
+    - uses: actions/checkout@v2
+    - run: npm install
+    # test and publish coverage
+    - run: npm run cover
+    - uses: actions/upload-artifact@v2
+      with:
+        name: coverage
+        path: .nyc_output/
+  coverage:
+    needs:
+    - test
+    runs-on: ubuntu-latest
+    steps:
+    # dependencies
+    - uses: actions/setup-node@v2
+      with:
+        node-version: 14
+    - uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: ${{ runner.os }}-node-
+    - uses: actions/checkout@v2
+    - run: npm install
+    # fetch previous
+    - run: git clone --branch=gh-pages --depth=1 "https://za-creature:${{ github.token }}@github.com/${{ github.repository }}.git" coverage/
+    - uses: actions/download-artifact@v2
+      with:
+        name: coverage
+        path: .nyc_output/
+    # publish report
+    - run: npm run lint
+    - run: npm run report
+    - run: git config --global user.email "no-reply.actions.cf-emu.za-creature@github.com"
+    - run: git config --global user.name "GitHub Actions"
+    - run: cd coverage && git add . && git commit -m 'Update coverage' && git push
