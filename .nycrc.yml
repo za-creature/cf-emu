@@ -1,3 +1,7 @@
-reporter: ['html']
-include: ['cf-emu/**/*.js']
-exclude: ['**/*.test.js']
+reporter:
+- text-summary
+- html
+include:
+- 'cf-emu/**/*.js'
+exclude:
+- '**/*.test.js'

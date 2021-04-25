@@ -3,19 +3,12 @@
   "version": "1.0.0",
   "description": "Emulates the Cloudflare Workers environment",
   "main": "index.js",
-  "bin": {
-    "cf-emu": "index.js"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/za-creature/cf-emu.git"
-  },
-  "author": "za_creature",
+  "bin": "./index.js",
+  "repository": "github:za-creature/cf-emu",
+  "author": "Radu Dan",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/za-creature/cf-emu/issues"
-  },
-  "homepage": "https://github.com/za-creature/cf-emu",
+  "bugs": "https://github.com/za-creature/cf-emu/issues",
+  "homepage": "https://github.com/za-creature/cf-emu#readme",
   "dependencies": {
     "busboy": "^0.3.1",
     "esprima": "^4.0.1",
@@ -32,14 +25,9 @@
     "nyc": "^15.1.0"
   },
   "scripts": {
-    "nvm": "source $NVM_DIR/nvm.sh && nvm exec",
     "test": "mocha",
     "lint": "eslint .",
     "cover": "nyc mocha",
-    "report": "nyc report",
-    "cover:init": "nyc --silent mocha",
-    "cover:add": "nyc --silent --no-clean mocha",
-    "cover:report": "nyc --no-clean mocha",
-    "cover:all": "npm run nvm -- 8 npm run cover:init && npm run nvm -- 10 npm run cover:add && npm run nvm -- 12 npm run cover:add && npm run nvm -- 14 npm run cover:report"
+    "report": "nyc report"
   }
 }
