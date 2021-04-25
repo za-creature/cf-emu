@@ -1,5 +1,5 @@
 [![npm](https://img.shields.io/npm/v/cf-emu)](https://www.npmjs.com/package/cf-emu)
-[![tests](https://github.com/za-creature/cf-emu/workflows/test/badge.svg?branch=master&event=push)](https://github.com/za-creature/cf-emu/actions?query=workflow%3Atests+branch%3Amaster)
+[![tests](https://github.com/za-creature/cf-emu/workflows/tests/badge.svg?branch=master&event=push)](https://github.com/za-creature/cf-emu/actions?query=workflow%3Atests+branch%3Amaster)
 [![coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/za-creature/1e4664346f422ed78c1cc07a6a5da580/raw/coverage.json)](https://za-creature.github.io/cf-emu)
 
 # cf-emu
