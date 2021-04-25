@@ -22,6 +22,6 @@ describe('package', () => {
 
     it('bugs', () => {
         let {bugs} = require('./package.json')
-        assert.isString(bugs.url)
+        assert.isString(bugs)
     })
 })
