@@ -36,6 +36,7 @@
     "test": "mocha",
     "lint": "eslint .",
     "cover": "nyc mocha",
+    "report": "nyc report",
     "cover:init": "nyc --silent mocha",
     "cover:add": "nyc --silent --no-clean mocha",
     "cover:report": "nyc --no-clean mocha",
