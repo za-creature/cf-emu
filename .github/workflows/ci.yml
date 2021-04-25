@@ -56,7 +56,15 @@ jobs:
         path: .nyc_output/
     # publish report
     - run: npm run lint
-    - run: npm run report
+    - run: echo COVERAGE=$(npm run report | grep Statements | awk '{print $3}') >> $GITHUB_ENV
+    - uses: schneegans/dynamic-badges-action@v1.0.0
+      with:
+        auth: ${{ secrets.GIST_TOKEN }}
+        gistID: 1e4664346f422ed78c1cc07a6a5da580
+        filename: coverage.json
+        label: coverage
+        message: ${{ env.COVERAGE }}
+        color: green
     - run: git config --global user.email "no-reply.actions.cf-emu.za-creature@github.com"
     - run: git config --global user.name "GitHub Actions"
     - run: cd coverage && git add . && git commit -m 'Update coverage' && git push
