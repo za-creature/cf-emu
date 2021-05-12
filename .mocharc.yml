@@ -1,7 +1,7 @@
 require:
-  - 'conftest.js'
+- 'conftest.js'
 spec:
-  - '**/*.test.js'
+- '**/*.test.js'
 ignore:
-  - 'node_modules/**/*'
-  - 'fixtures/**/*'
+- 'node_modules/**/*'
+- 'fixtures/**/*'

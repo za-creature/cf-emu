@@ -22,6 +22,9 @@ exports.fetch = global.fetch || node_fetch()
 exports.Headers = global.Headers || node_fetch().Headers
 exports.Request = global.Request || node_fetch().Request
 exports.Response = global.Response || node_fetch().Response
+exports.Response.redirect = exports.Response.redirect || (
+    (url, status=302) => new exports.Response(null, {status, headers: {'Location': url}})
+)
 // note: Request.formData() is implemented in worker.js for the incoming request
 exports.FormData = global.FormData || require('./lib/form_data')
 
