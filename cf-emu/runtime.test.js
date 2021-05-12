@@ -29,7 +29,22 @@ describe('runtime', () => {
     it('fetch', () => assert.isFunction(g.fetch))
     it('Headers', () => assert.isFunction(g.Headers))
     it('Request', () => assert.isFunction(g.Request))
-    it('Response', () => assert.isFunction(g.Response))
+    describe('Response', () => {
+        it('binding', () => {
+            assert.isFunction(g.Response)
+        })
+
+        it('redirect', () => {
+            assert.isFunction(g.Response.redirect)
+            let res = g.Response.redirect('http://example.com')
+            assert.equal(res.status, 302)
+            assert.equal(res.headers.get('Location'), 'http://example.com')
+
+            res = g.Response.redirect('https://example.com', 301)
+            assert.equal(res.status, 301)
+            assert.equal(res.headers.get('Location'), 'https://example.com')
+        })
+    })
 
     // tested in lib/form_data, only test binding
     it('FormData', () => assert.isFunction(g.FormData))
