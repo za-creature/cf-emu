@@ -43,7 +43,7 @@ npm install --save-dev cf-emu
 ## Usage
 While primarily a command line interface, cf-emu supports some additional usage
 patterns which are described in this document. For a list of supported options,
-see the [CLI definitions](src/cli.js) or run:
+see the [CLI definitions](cf-emu/cli.js) or run:
 ```sh
 cf-emu --help
 ```
@@ -88,7 +88,7 @@ addEventListener('fetch', ev => {
 
 `handler.test.js`:
 ```javascript
-let handlers = require('cf-emu/runtime')
+let {handlers} = require('cf-emu/runtime')
 let {assert} = require('chai')
 
 describe('handler.js', () => {

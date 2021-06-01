@@ -152,7 +152,7 @@ module.exports = yargs
         /*istanbul ignore if*/
         if(err) {
             console.error('unhandled yargs error; please report this at' +
-                          `\n${bugs.url}}\n`)
+                          `\n${bugs}}\n`)
             throw err
         }
         console.log(`cf-emu v${version}`)

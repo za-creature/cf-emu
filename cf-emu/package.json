@@ -1,1 +1,33 @@
-../package.json
+{
+  "name": "cf-emu",
+  "version": "1.0.2",
+  "description": "Emulates the Cloudflare Workers environment",
+  "main": "index.js",
+  "bin": "./index.js",
+  "repository": "github:za-creature/cf-emu",
+  "author": "Radu Dan",
+  "license": "ISC",
+  "bugs": "https://github.com/za-creature/cf-emu/issues",
+  "homepage": "https://github.com/za-creature/cf-emu#readme",
+  "dependencies": {
+    "busboy": "^0.3.1",
+    "esprima": "^4.0.1",
+    "fetch-blob": "^1.0.6",
+    "form-data": "^4.0.0",
+    "node-fetch": "^2.6.1",
+    "subtle": "^0.1.8",
+    "yargs": "^15.0.2"
+  },
+  "devDependencies": {
+    "chai": "^4.3.4",
+    "eslint": "^7.25.0",
+    "mocha": "^7.1.0",
+    "nyc": "^15.1.0"
+  },
+  "scripts": {
+    "test": "mocha",
+    "lint": "eslint .",
+    "cover": "nyc mocha --silent",
+    "report": "nyc report"
+  }
+}
