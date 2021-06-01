@@ -15,6 +15,7 @@ describe('package', () => {
             }
         })
     })
+
     it('version', () => {
         let {version} = require('./package.json')
         assert.match(version, /^\d+\.\d+.\d+$/)

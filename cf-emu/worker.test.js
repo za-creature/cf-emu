@@ -33,7 +33,7 @@ describe('server', () => {
             let status = null
             headers = {}
             let res = buffer()
-            res.setHeader = (key, val) => (headers[key] = val, undefined)
+            res.setHeader = (key, val) => void (headers[key] = val)
             Object.defineProperty(res, 'statusCode', {
                 get() { return status },
                 set(val) { status = val }
