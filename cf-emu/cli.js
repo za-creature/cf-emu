@@ -111,6 +111,13 @@ module.exports = yargs
         desc: ' max worker initialization time in milliseconds',
         default: 50
     })
+    .option('k', {
+        alias: 'keepalive',
+        type: 'number',
+        nargs: 1,
+        desc: ' max persistent connection time in milliseconds',
+        default: 5000
+    })
     .option('u', {
         alias: 'unsafe',
         type: 'boolean',
@@ -134,7 +141,7 @@ module.exports = yargs
     .version('v', 'show version number and exit', version)
     .alias({c: 'config', h: 'help', v: 'version'})
     /* groups */
-    .group(['d', 'f', 'l', 'o', 'p', 'r', 't', 'w'], 'Common options:')
+    .group(['d', 'f', 'l', 'o', 'p', 'r', 't', 'k', 'w'], 'Common options:')
     .group(['a', 'u'], 'Options for server mode:')
     .group(['b', 'i'], 'Options for standalone mode:')
     .group(['c', 'h', 'v'], 'Other options:')

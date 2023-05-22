@@ -36,13 +36,13 @@ describe('runtime', () => {
 
         it('redirect', () => {
             assert.isFunction(g.Response.redirect)
-            let res = g.Response.redirect('http://example.com')
+            let res = g.Response.redirect('http://example.com/')
             assert.equal(res.status, 302)
-            assert.equal(res.headers.get('Location'), 'http://example.com')
+            assert.equal(res.headers.get('Location'), 'http://example.com/')
 
-            res = g.Response.redirect('https://example.com', 301)
+            res = g.Response.redirect('https://example.com/', 301)
             assert.equal(res.status, 301)
-            assert.equal(res.headers.get('Location'), 'https://example.com')
+            assert.equal(res.headers.get('Location'), 'https://example.com/')
         })
     })
 

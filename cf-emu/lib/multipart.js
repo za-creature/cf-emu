@@ -8,7 +8,7 @@ let Busboy = require('busboy')
 // these belong to runtime.js, but they are intentionally not exposed in order
 // to mirror CF behavior: instances are available as results of formData().get()
 let Blob = exports.Blob = global.Blob || require('fetch-blob')
-let File = exports.File = global.File || class File extends Blob {
+let File = exports.File = global.File || buffer.File || class File extends Blob {
     constructor(parts, name, options={}) {
         let lastModified
         if(options.lastModified) {

@@ -11,6 +11,7 @@ let {relative, resolve} = require('path')
 
 describe('index', () => {
     let port = TEST_PORT
+    let keepalive = TEST_KEEPALIVE
     let wait = (target, event) => new Promise((res, rej) => target.on('error', err => rej(err))
                                                                   .on(event, val => res(val)))
 
@@ -18,7 +19,7 @@ describe('index', () => {
         let worker, event = name => wait(worker, name)
         beforeEach(() => worker = null)
 
-        let options = {watchdog: true, port, delay: 0}
+        let options = {watchdog: true, port, delay: 0, keepalive}
         it('gracefully shuts down', async function() {
             let source = 'addEventListener("fetch", ev => ev.respondWith(new Response("hi")))'
             worker = watchdog(source, options)
@@ -81,7 +82,7 @@ describe('index', () => {
             let old = process.env.CF_TOKEN
             try {
                 process.env.CF_TOKEN = 'foo'
-                server = api({api: port})
+                server = api({api: port, keepalive})
                 let res = await fetch(`http://localhost:${port}`)
                 assert.equal(res.status, 401)
                 assert.equal(await res.text(), 'unauthorized')
@@ -106,7 +107,7 @@ describe('index', () => {
             try {
                 process.env.CF_EMAIL = 'bar'
                 process.env.CF_APIKEY = 'baz'
-                server = api({api: port})
+                server = api({api: port, keepalive})
                 let res = await fetch(`http://localhost:${port}`)
                 assert.equal(res.status, 401)
                 assert.equal(await res.text(), 'unauthorized')
@@ -136,7 +137,7 @@ describe('index', () => {
             let tok = process.env.CF_TOKEN
             try {
                 process.env.CF_TOKEN = 'tok'
-                instance = api({port, api: API_PORT, timeout: 300})
+                instance = api({port, api: API_PORT, keepalive, timeout: 300})
                 return wait(instance, 'ready')
             } finally {
                 if(tok)
@@ -210,14 +211,13 @@ describe('index', () => {
             }]}))
             form.set('main', 'addEventListener("fetch", ev => ev.respondWith(new Response(response)))')
 
-            let res = await fetch(`http://localhost:${API_PORT}`, {
-                headers: {
-                    authorization: 'Bearer tok',
-                    'content-type': `multipart/form-data; boundary='${form.getBoundary()}'`
-                },
-                method: 'PUT',
-                body: await buffer.consume(form)
-            })
+            let opts = {headers: {authorization: 'Bearer tok'}, method: 'PUT', body: form}
+            if(form.getBoundary) {
+                opts.headers['content-type'] = `multipart/form-data; boundary='${form.getBoundary()}'`
+                opts.body = await buffer.consume(form)
+            }
+
+            let res = await fetch(`http://localhost:${API_PORT}`, opts)
             assert.include(await res.text(), 'deployed')
             res = await fetch(`http://localhost:${port}`)
             assert.equal(await res.text(), 'binding')
@@ -231,7 +231,8 @@ describe('index', () => {
             instance = emu({
                 input: relative(process.cwd(),
                                 resolve(__dirname, '../fixtures/simple.test.js')),
-                port
+                port,
+                keepalive
             })
             await event('ready')
             let res = await fetch(`http://localhost:${port}`)
@@ -249,7 +250,7 @@ describe('index', () => {
                     enumerable: true,
                     configurable: true
                 })
-                instance = emu({input: '-', port})
+                instance = emu({input: '-', port, keepalive})
                 await event('ready')
                 let res = await fetch(`http://localhost:${port}`)
                 assert.equal(await res.text(), 'hi')
@@ -261,12 +262,12 @@ describe('index', () => {
         })
 
         it('refuses to deploy unauthenticated api by default', async function() {
-            instance = emu({api: port})
+            instance = emu({api: port, keepalive})
             assert.equal(await event('close'), 1)
         })
 
         it('deploys unauthenticated api with flag', async function() {
-            instance = emu({api: port, unsafe: true})
+            instance = emu({api: port, keepalive, unsafe: true})
             await event('ready')
             let res = await fetch(`http://localhost:${port}`, {method: 'PUT'})
             assert.equal(await res.status, 400)
@@ -275,10 +276,10 @@ describe('index', () => {
         })
 
         it('returns 1 if the port is already used', async function() {
-            let server = createServer()
+            let server = createServer({keepAliveTimeout: 0})
             await new Promise(res => server.listen(port, res))
             try {
-                instance = emu({api: port, unsafe: true})
+                instance = emu({api: port, keepalive, unsafe: true})
                 assert.equal(await event('close'), 1)
             } finally {
                 await new Promise(res => server.on('close', res).close())

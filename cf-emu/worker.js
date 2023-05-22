@@ -19,8 +19,15 @@ let translate = (handlers, options) => (req, res) => {
             return error(new Error('invalid response type'))
         console.log(req.method, response.status, url)
         res.statusCode = response.status
-        for(let [key, value] of response.headers)
-            res.setHeader(key, value)
+        let headers = new Map()
+        for(let [key, value] of response.headers) {
+            let list
+            headers.set(key, list = headers.get(key) || [])
+            list.push(value)
+        }
+        for(let [key, values] of headers) {
+            res.setHeader(key, values.join(', '))
+        }
         if(response.body && typeof response.body.pipe == 'function')
             response.body.pipe(res)
                 .on('finish', () => res.end())
@@ -42,7 +49,7 @@ let translate = (handlers, options) => (req, res) => {
         if(passthrough) {
             passthrough = false
             console.error(err.stack)
-            return fetch(new URL(req.url, options.origin), {method, headers, body})
+            return fetch(new URL(req.url, options.origin), opts)
             .then(respond, error)
         }
         respond(new Response(err.stack, {
@@ -66,8 +73,12 @@ let translate = (handlers, options) => (req, res) => {
         'cf-ray': `${random_hex(16)}-DEV`,
     }
     let url = `http://${headers.host || req.socket.localAddress}${req.url}`
-    let body = method != 'GET' && method != 'HEAD' ? req : null
-    let request = new Request(url, {method, headers, body})
+    let opts = {method, headers}
+    if(method != 'GET' && method != 'HEAD') {
+        opts.body = req
+        opts.duplex = 'half'
+    }
+    let request = new Request(url, opts)
     if(!request.formData)
         request.formData = () => piccolo(headers, request.body)
 
@@ -127,7 +138,7 @@ let translate = (handlers, options) => (req, res) => {
 
     passthrough = false
     console.warn(`\`respondWith()\` not called; forwarding to ${options.origin}`)
-    fetch(new URL(req.url, options.origin), {method, headers, body}).then(respond, error)
+    fetch(new URL(req.url, options.origin), opts).then(respond, error)
 }
 
 
@@ -190,7 +201,7 @@ function serve(input, options) {
         else /*istanbul ignore if*/ if(!stop)
             reason = `prematurely; please report this at \n${bugs.url}\n`
         if(reason)
-            reason =  new Error(`worker terminated ${reason}`)
+            reason = new Error(`worker terminated ${reason}`)
         thread.emit('close', reason)
     })
     stream(input).pipe(worker.stdin).on('error', err => {
@@ -225,7 +236,7 @@ async function main() {
 
         // spawn server
         await new Promise((res, rej) => {
-            let server = createServer(handler)
+            let server = createServer({keepAliveTimeout: options.keepalive}, handler)
             .on('close', res)
             .on('error', rej)
             .listen(options.port, () => {
