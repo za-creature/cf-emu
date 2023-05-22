@@ -222,7 +222,7 @@ describe('MemoryCache', () => {
 
     describe('add', () => {
         let server, port = TEST_PORT
-        before(next => server = createServer((req, res) => {
+        before(next => server = createServer({keepAliveTimeout: 100}, (req, res) => {
             if(~req.url.indexOf('error'))
                 res.statusCode = 400
             res.end('hi')

@@ -111,7 +111,7 @@ function api(options) {
                 await new Promise((res, rej) =>
                     worker = watchdog(req, options)
                         .once('ready', res)
-                        .once('close', () => (worker = null, rej()))
+                        .once('close', code => (worker = null, rej(code)))
                     )
                 res.statusCode = 200
                 res.end(`deployed ${req.headers['content-length']>>10}KiB` +
@@ -142,14 +142,14 @@ function api(options) {
     // start api server and main thread
     let thread = new Thread('api server').on('stop', () => {
         if(worker)
-            worker.emit('stop')
+            worker.once('close', code => status = code).emit('stop')
         if(server) {
             server.on('request', http_503).removeListener('request', handler).close()
             server = null
         }
     })
     let status = 0
-    let server = createServer(handler)
+    let server = createServer({keepAliveTimeout: options.keepalive}, handler)
         .once('close', () => {
             if(worker)
                 worker.once('close', status => thread.emit('close', status))

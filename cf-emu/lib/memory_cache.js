@@ -20,7 +20,7 @@ let parse_options = (req, options) => {
 }
 
 let matchAll = (haystack = [], needle, negate_vary=false) => haystack.filter(
-    ([req, res]) => (
+    ([req, body, res]) => (
         // filter out expired requests
         !res.headers.has('expires') ||
         new Date(res.headers.get('expires')).getTime() > Date.now()
@@ -50,12 +50,13 @@ module.exports = class MemoryCache {
         return (await this.matchAll(req, options))[0]
     }
 
-    async matchAll(req, options={}, /*local*/ url) {
+    async matchAll(req, options={}) {
+        let url
         [req, url] = parse_options(req, options)
         if(req.method != 'GET' && !options.ignoreMethod)
             return []
         req = new Request(req, {'method': 'GET'})
-        return matchAll(this.data.get(url), req).map(([, res]) => {
+        return matchAll(this.data.get(url), req).map(([, body, res]) => {
             // shortcircuit response body if unchanged...
             if(( // ... by etag
                 res.headers.has('etag') &&
@@ -113,11 +114,11 @@ module.exports = class MemoryCache {
                     headers.set('content-range',
                                 `bytes ${range_start}-${range_end}/${content_length}`)
                     headers.set('content-length', range_end - range_start + 1)
-                    return new Response(res.body.slice(range_start, range_end + 1),
+                    return new Response(body.slice(range_start, range_end + 1),
                                         {'status': 206, headers})
                 }
             }
-            return new Response(res.body, res)
+            return new Response(body, res)
         })
     }
 
@@ -133,7 +134,10 @@ module.exports = class MemoryCache {
         return Promise.all(reqs.map(req => this.add(req)))
     }
 
-    async put(req, res, /*local*/ url) {
+    async put(req, res) {
+        let body = await res.arrayBuffer()
+        res = new Response(null, res)
+        let url
         [req, url] = parse_options(req, {})
         if(req.method != 'GET')
             throw new TypeError('only GET is supported')
@@ -167,19 +171,19 @@ module.exports = class MemoryCache {
                 res.headers.set('expires', http_date(now + 1000 * (age - fresh)))
         }
 
-        // resolve body to string
-        res = new Response(await res.arrayBuffer(), res)
-        result.push([req, res])
+        result.push([req, body, res])
         this.data.set(url, result)
     }
 
-    async delete(req, options={}, /*local*/ url) {
+    async delete(req, options={}) {
+        let url
         [req, url] = parse_options(req, options)
         if(req.method == 'GET' || options.ignoreMethod)
             this.data.delete(url)
     }
 
-    async keys(req, options={}, /*local*/ url) {
+    async keys(req, options={}) {
+        let url
         if(req) {
             [req, url] = parse_options(req, options)
             return matchAll(this.data.get(url), req).map(([req]) => req)

@@ -13,7 +13,8 @@ for(let [key, val] of Object.entries({
     MAJOR_NODE_VERSION: parseInt(process.versions.node.split('.')[0]),
     NODE_ENV: 'test',
     API_PORT: 12673,
-    TEST_PORT: 12674
+    TEST_PORT: 12674,
+    TEST_KEEPALIVE: 100,
 }))
     exports[key] = process.env[key] || val
 for(let key in exports)
