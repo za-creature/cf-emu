@@ -203,7 +203,7 @@ describe('server', () => {
 
         describe('passthrough', () => {
             let server
-            before(next => server = createServer({keepAliveTimeout: 100},
+            before(next => server = createServer({keepAliveTimeout: 100}).on('request',
                 (req, res) => res.end('passthrough')).listen(port, next)
             )
             after(next => server.close(next))
@@ -324,14 +324,16 @@ describe('server', () => {
             await close
         })
 
-        it('gracefully shuts down', async () => {
-            worker = serve(input, {port, keepalive})
+        it('gracefully shuts down', async function() {
+            if(MAJOR_NODE_VERSION > 18)
+                return this.skip() // node>18 will RESET instead of calling the new handler
+            worker = serve(input, {port, keepalive: 500})
             await event('ready')
             let req = createConnection(port),
                 res = buffer.consume(req)
             await event('connect', req)
             worker.emit('stop')
-            await new Promise(res => setTimeout(res, 25))
+            await new Promise(res => setTimeout(res, 200))
             req.end('HEAD / HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
             res = await res
             assert(res.toString().startsWith('HTTP/1.1 503'))
@@ -364,7 +366,7 @@ describe('server', () => {
         })
 
         it('throws an error when the server could not be started', async () => {
-            let server = createServer({keepAliveTimeout: 0}, () => {})
+            let server = createServer({keepAliveTimeout: 0})
             await new Promise(res => server.listen(port, res))
             worker = serve(input, {port, keepalive})
             let err = await event('close')

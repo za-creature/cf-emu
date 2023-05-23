@@ -236,7 +236,8 @@ async function main() {
 
         // spawn server
         await new Promise((res, rej) => {
-            let server = createServer({keepAliveTimeout: options.keepalive}, handler)
+            let server = createServer({keepAliveTimeout: options.keepalive})
+            .on('request', handler)
             .on('close', res)
             .on('error', rej)
             .listen(options.port, () => {
