@@ -20,7 +20,7 @@ let parse_options = (req, options) => {
 }
 
 let matchAll = (haystack = [], needle, negate_vary=false) => haystack.filter(
-    ([req, body, res]) => (
+    ([req,, res]) => (
         // filter out expired requests
         !res.headers.has('expires') ||
         new Date(res.headers.get('expires')).getTime() > Date.now()

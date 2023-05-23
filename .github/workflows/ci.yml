@@ -12,6 +12,9 @@ jobs:
         - 10
         - 12
         - 14
+        - 16
+        - 18
+        - 20
     name: test/node ${{ matrix.node }}/${{ matrix.platfornm }}
     runs-on: ${{ matrix.platform }}
     steps:

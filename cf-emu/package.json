@@ -1,6 +1,6 @@
 {
   "name": "cf-emu",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Emulates the Cloudflare Workers environment",
   "main": "index.js",
   "bin": "./index.js",
@@ -25,7 +25,7 @@
     "nyc": "^15.1.0"
   },
   "scripts": {
-    "test": "mocha -b",
+    "test": "mocha",
     "lint": "eslint .",
     "cover": "nyc mocha --silent",
     "report": "nyc report"

@@ -149,7 +149,7 @@ function api(options) {
         }
     })
     let status = 0
-    let server = createServer({keepAliveTimeout: options.keepalive}, handler)
+    let server = createServer({keepAliveTimeout: options.keepalive}).on('request', handler)
         .once('close', () => {
             if(worker)
                 worker.once('close', status => thread.emit('close', status))
