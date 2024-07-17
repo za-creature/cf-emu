@@ -1,4 +1,4 @@
-/* global addEventListener, Response */
+/* global addEventListener */
 addEventListener('fetch', ev => {
     ev.respondWith(new Response('hello world'))
 })
