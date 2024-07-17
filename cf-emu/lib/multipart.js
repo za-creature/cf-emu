@@ -2,7 +2,7 @@
 let {FormData} = require('../runtime')
 let {buffer} = require('./util')
 
-let Busboy = require('busboy')
+let busboy = require('busboy')
 
 
 // these belong to runtime.js, but they are intentionally not exposed in order
@@ -110,12 +110,12 @@ exports.piccolo = async function piccolo(headers, body) {
     if(body) {
         let files = []
         await new Promise((res, rej) => {
-            let parser = new Busboy({'headers': headers, 'limits': {'fieldSize': Infinity}})
-            parser.on('file', (name, stream, filename, _, type) => files.push(
+            let parser = busboy({'headers': headers, 'limits': {'fieldSize': Infinity}})
+            parser.on('file', (name, stream, info) => files.push(
                 buffer(true).consume(stream).then(parts => result.append(
                     name,
-                    new File(parts, filename, {type}),
-                    filename
+                    new File(parts, info.filename, {type: info.mimeType}),
+                    info.filename
                 ))
             ))
             parser.on('field', (name, val) => result.append(name, val))

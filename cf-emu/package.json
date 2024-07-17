@@ -10,7 +10,7 @@
   "bugs": "https://github.com/za-creature/cf-emu/issues",
   "homepage": "https://github.com/za-creature/cf-emu#readme",
   "dependencies": {
-    "busboy": "^0.3.1",
+    "busboy": "^1.6.0",
     "esprima": "^4.0.1",
     "fetch-blob": "^1.0.6",
     "form-data": "^4.0.0",
