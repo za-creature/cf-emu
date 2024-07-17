@@ -8,8 +8,8 @@ jobs:
         platform:
         - ubuntu-latest
         node:
-        - 8
-        - 10
+        #- 8  # yargs
+        #- 10 # esm
         - 12
         - 14
         - 16
