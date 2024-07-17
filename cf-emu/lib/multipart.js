@@ -1,4 +1,3 @@
-/* global WebAssembly:false */
 let {FormData} = require('../runtime')
 let {buffer} = require('./util')
 

@@ -1,4 +1,3 @@
-/* global WebAssembly:false */
 let {FormData} = require('../runtime')
 let {parse, piccolo, Blob, File} = require('./multipart')
 let {stream} = require('./util')
