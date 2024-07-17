@@ -319,8 +319,7 @@ describe('index', () => {
         it('forcefully terminates worker on double SIGINT', async function() {
             this.timeout(10000)
             let proc = spawn(process.execPath,
-                             [__dirname, '--port', port, '--api', API_PORT, '--unsafe',
-                              resolve(__dirname, '../fixtures/blocking.test.js')],
+                             [__dirname, '--port', port, '--api', API_PORT, '--unsafe'],
                              {stdio: 'inherit'})
             let shutdown = new Promise(next => proc.once('close', (code, signal) => {
                 assert.equal(code, 3)
