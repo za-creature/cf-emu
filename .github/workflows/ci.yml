@@ -15,19 +15,20 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
     # dependencies
-    - uses: actions/setup-node@v2
+    - uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node }}
-    - uses: actions/cache@v2
+        check-latest: true
+    - uses: actions/cache@v4
       with:
         path: ~/.npm
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
         restore-keys: ${{ runner.os }}-node-
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - run: npm install
     # test and publish coverage
     - run: npm run cover
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: coverage
         path: .nyc_output/
@@ -37,26 +38,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     # dependencies
-    - uses: actions/setup-node@v2
+    - uses: actions/setup-node@v4
       with:
-        node-version: 14
-    - uses: actions/cache@v2
+        node-version: 22
+        check-latest: true
+    - uses: actions/cache@v4
       with:
         path: ~/.npm
         key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
         restore-keys: ${{ runner.os }}-node-
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - run: npm install
     # fetch previous
     - run: git clone --branch=gh-pages --depth=1 "https://za-creature:${{ github.token }}@github.com/${{ github.repository }}.git" coverage/
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4
       with:
         name: coverage
         path: .nyc_output/
     # publish report
     - run: npm run lint
     - run: echo COVERAGE=$(npm run report | grep Statements | awk '{print $3}') >> $GITHUB_ENV
-    - uses: schneegans/dynamic-badges-action@v1.0.0
+    - uses: schneegans/dynamic-badges-action@v1.7.0
       with:
         auth: ${{ secrets.GIST_TOKEN }}
         gistID: 1e4664346f422ed78c1cc07a6a5da580
