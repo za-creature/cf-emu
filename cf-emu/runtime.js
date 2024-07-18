@@ -1,32 +1,18 @@
 exports.self = exports
 
-// https://developers.cloudflare.com/workers/reference/apis/standard
-exports.atob = s => {
-    let data = Buffer.from(s, 'base64')
-    let b = [], i = 0, j = 0, len = data.length
-    do {
-        j = Math.min(len, i + 16384)
-        b.push(String.fromCharCode(...data.slice(i, j)))
-        i = j
-    } while(i < len)
-    return b.join('')
-}
-exports.btoa = b => Buffer.from(b, 'ascii').toString('base64')
-Object.assign(exports, {setInterval, clearInterval, setTimeout, clearTimeout})
-exports.URL = global.URL || require('url').URL
+;[
+    // https://developers.cloudflare.com/workers/reference/apis/standard
+    'atob', 'btoa',
+    'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout',
+    // https://developers.cloudflare.com/workers/reference/apis/fetch/
+    'fetch', 'URL', 'Headers', 'Request', 'Response', 'FormData',
 
+    // https://developers.cloudflare.com/workers/reference/apis/encoding/
+    'TextEncoder', 'TextDecoder',
 
-// https://developers.cloudflare.com/workers/reference/apis/fetch/
-let node_fetch = () => require('node-fetch')
-exports.fetch = global.fetch || node_fetch()
-exports.Headers = global.Headers || node_fetch().Headers
-exports.Request = global.Request || node_fetch().Request
-exports.Response = global.Response || node_fetch().Response
-exports.Response.redirect = exports.Response.redirect || (
-    (url, status=302) => new exports.Response(null, {status, headers: {'Location': url}})
-)
-// note: Request.formData() is implemented in worker.js for the incoming request
-exports.FormData = global.FormData || require('./lib/form_data')
+    // https://developers.cloudflare.com/workers/reference/apis/web-crypto/
+    'crypto',
+].forEach(key => exports[key] = global[key])
 
 
 // https://developers.cloudflare.com/workers/reference/apis/fetch-event/
@@ -59,27 +45,6 @@ exports.removeEventListener = (event, callback, index) => {
 
 // https://developers.cloudflare.com/workers/reference/apis/kv/
 // kv - NOT YET IMPLEMENTED
-
-
-// https://developers.cloudflare.com/workers/reference/apis/encoding/
-let node_10 = () => require('./lib/node_10')
-exports.TextEncoder = global.TextEncoder || node_10().TextEncoder
-exports.TextDecoder = global.TextDecoder || node_10().TextDecoder
-Promise.allSettled = Promise.allSettled || node_10().Promise_allSettled
-
-
-// https://developers.cloudflare.com/workers/reference/apis/web-crypto/
-if(global.crypto.subtle && global.crypto.getRandomValues) {
-    exports.crypto = global.crypto
-} else {
-    let {createHash, randomFillSync} = require('crypto')
-    exports.crypto = {
-        getRandomValues: randomFillSync,
-        subtle: Object.assign(require('subtle'), {
-            digest: (algo, str) => createHash(algo.replace('-', '')).update(str).digest()
-        })
-    }
-}
 
 // https://developers.cloudflare.com/workers/reference/apis/cache/
 exports.caches = global.caches || {default: new (require('./lib/memory_cache'))}

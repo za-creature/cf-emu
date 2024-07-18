@@ -1,34 +1,6 @@
-let {FormData} = require('../runtime')
 let {buffer} = require('./util')
 
 let busboy = require('busboy')
-
-
-// these belong to runtime.js, but they are intentionally not exposed in order
-// to mirror CF behavior: instances are available as results of formData().get()
-let Blob = exports.Blob = global.Blob || require('fetch-blob')
-let File = exports.File = global.File || buffer.File || class File extends Blob {
-    constructor(parts, name, options={}) {
-        let lastModified
-        if(options.lastModified) {
-            lastModified = options.lastModified
-            delete options.lastModified
-        } else
-            lastModified = Date.now()
-        super(parts, options)
-        this._lm = lastModified
-        this._name = name
-    }
-    get lastModified() {
-        return this._lm
-    }
-    get lastModifiedDate() {
-        return new Date(this._lm)
-    }
-    get name() {
-        return this._name
-    }
-}
 
 
 // parses a multpart body that contains the worker and bindings; input should
@@ -106,23 +78,21 @@ exports.parse = async function parse(form, out_bindings) {
 // used to patch Request.prototype.formData() and by the API server
 exports.piccolo = async function piccolo(headers, body) {
     let result = new FormData()
-    if(body) {
-        let files = []
-        await new Promise((res, rej) => {
-            let parser = busboy({'headers': headers, 'limits': {'fieldSize': Infinity}})
-            parser.on('file', (name, stream, info) => files.push(
-                buffer(true).consume(stream).then(parts => result.append(
-                    name,
-                    new File(parts, info.filename, {type: info.mimeType}),
-                    info.filename
-                ))
+    let files = []
+    await new Promise((res, rej) => {
+        let parser = busboy({'headers': headers, 'limits': {'fieldSize': Infinity}})
+        parser.on('file', (name, stream, info) => files.push(
+            buffer(true).consume(stream).then(parts => result.append(
+                name,
+                new File(parts, info.filename, {type: info.mimeType}),
+                info.filename
             ))
-            parser.on('field', (name, val) => result.append(name, val))
-            parser.on('finish', res)
-            parser.on('error', rej)
-            body.pipe(parser)
-        })
-        await Promise.all(files)
-    }
+        ))
+        parser.on('field', (name, val) => result.append(name, val))
+        parser.on('finish', res)
+        parser.on('error', rej)
+        body.pipe(parser)
+    })
+    await Promise.all(files)
     return result
 }

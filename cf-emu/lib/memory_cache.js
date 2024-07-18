@@ -1,4 +1,3 @@
-let {fetch, Headers, Request, Response} = require('../runtime')
 let {http_date} = require('./util')
 
 

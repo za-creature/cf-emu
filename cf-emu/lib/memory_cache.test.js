@@ -1,4 +1,3 @@
-let {Request, Response} = require('../runtime')
 let MemoryCache = require('./memory_cache')
 
 let {assert} = require('chai')

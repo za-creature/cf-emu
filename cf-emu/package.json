@@ -1,6 +1,6 @@
 {
   "name": "cf-emu",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "description": "Emulates the Cloudflare Workers environment",
   "main": "index.js",
   "bin": "./index.js",
@@ -11,11 +11,6 @@
   "homepage": "https://github.com/za-creature/cf-emu#readme",
   "dependencies": {
     "busboy": "^1.6.0",
-    "esprima": "^4.0.1",
-    "fetch-blob": "^2.1.2",
-    "form-data": "^4.0.0",
-    "node-fetch": "^2.7.0",
-    "subtle": "^0.1.8",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
