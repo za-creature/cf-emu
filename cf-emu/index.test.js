@@ -1,4 +1,4 @@
-let {buffer, stream} = require('./lib/util')
+let {stream} = require('./lib/util')
 let emu = require('./index')
 let {watchdog, api} = emu
 
