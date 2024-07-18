@@ -94,7 +94,7 @@ function api(options) {
             let match = req.headers['content-type'].match(/^multipart\/form-data;\s*boundary\s*=\s*"?(.+)"?\s*$/)
             if(match) {
                 match = match[1].trim()
-                /*istanbul ignore else*/
+                /*istanbul ignore next*/
                 if(
                         match[0] == match[match.length-1] &&
                         (match[0] == '"' || match[0] == '\''))

@@ -1,11 +1,12 @@
-let {FormData} = require('../runtime')
-let {parse, piccolo, Blob, File} = require('./multipart')
+let {parse, piccolo} = require('./multipart')
 let {stream} = require('./util')
 
 let {assert} = require('chai')
 
 
 describe('multipart', () => {
+    // these belong to runtime.js, but they are intentionally not exposed in order
+    // to mirror CF behavior: instances are available as results of formData().get()
     describe('File', () => {
         let file
         it('is a constructor', () => {

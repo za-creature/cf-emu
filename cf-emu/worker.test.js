@@ -1,4 +1,3 @@
-let {fetch, Headers, Request, Response} = require('./runtime')
 let serve = require('./worker')
 let {translate, compile} = serve
 let {Stackless, buffer, stream} = require('./lib/util')
@@ -117,49 +116,6 @@ describe('server', () => {
             res = await call()
             assert.equal(res.status, 500)
             assert.include(await res.text(), 'invalid error type')
-        })
-
-        it('implements request.formData()', async function() {
-            if(MAJOR_NODE_VERSION > 16) {
-                // bad test; x-www-form-urlencoded is not multipart/form-data
-                // and while picollo doesn't mind exposing both under the same
-                // interface, undici raises an error in this case
-                this.skip()
-            }
-            let promise
-            handlers = [e => (promise = e.request.formData(), e.respondWith(''))]
-            await call({
-                method: 'POST',
-                body: 'foo=bar&baz=qux',
-                headers: {'content-type': 'application/x-www-form-urlencoded'}
-            })
-            assert.isFunction(promise.then)
-            let data = await promise
-            assert.equal(data.get('foo'), 'bar')
-            assert.equal(data.get('baz'), 'qux')
-
-            await call()
-            assert.deepEqual(Array.from((await promise).entries()), [])
-        })
-
-        it('conditionally implements formData()', async () => {
-            let old = Request.prototype.formData
-            try {
-                Request.prototype.formData = async () => 'foo'
-                let promise
-                handlers = [e => (promise = e.request.formData(), e.respondWith(''))]
-                await call({
-                    method: 'POST',
-                    body: 'foo=bar&baz=qux',
-                    headers: {'content-type': 'application/x-www-form-urlencoded'}
-                })
-                assert.equal(await promise, 'foo')
-            } finally {
-                if(old)
-                    Request.prototype.formData = old
-                else
-                    delete Request.prototype.formData
-            }
         })
 
         it('implements non-blocking event.waitUntil()', async () => {

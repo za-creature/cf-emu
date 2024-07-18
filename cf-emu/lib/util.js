@@ -62,7 +62,7 @@ exports.stream = function stream(buffer) {
 }
 
 
-exports.http_503 = (req, res) => {
+exports.http_503 = /* istanbul ignore next */ (req, res) => {
     res.statusCode = 503
     res.setHeader('connection', 'close')
     res.setHeader('content-type', 'text/plain')

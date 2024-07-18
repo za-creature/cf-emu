@@ -1,4 +1,3 @@
-let {TextEncoder} = require('../runtime')
 let {Stackless, Thread, buffer, random_hex, stream} = require('./util')
 
 let {assert} = require('chai')

@@ -2,7 +2,6 @@ let {defaults} = require('./cli')
 let {buffer, http_503, random_hex, stream, Thread} = require('./lib/util')
 let {parse, piccolo} = require('./lib/multipart')
 let {bugs} = require('./package.json')
-let {fetch, Request, Response, URL} = require('./runtime')
 
 let {spawn} = require('child_process')
 let {createServer} = require('http')
@@ -28,17 +27,7 @@ let translate = (handlers, options) => (req, res) => {
         for(let [key, values] of headers) {
             res.setHeader(key, values.join(', '))
         }
-        if(response.body && typeof response.body.pipe == 'function')
-            response.body.pipe(res)
-                .on('finish', () => res.end())
-                .on('error', /*istanbul ignore next*/ err => {
-                    console.error('unhandled error in translate body pipe;' +
-                                  ` please report this at \n${bugs.url}\n`)
-                    console.error(err)
-                    res.end()
-                })
-        else
-            response.arrayBuffer().then(buff => res.end(Buffer.from(buff)), error)
+        response.arrayBuffer().then(buff => res.end(Buffer.from(buff)), error)
     }
 
     // error handling
@@ -79,8 +68,6 @@ let translate = (handlers, options) => (req, res) => {
         opts.duplex = 'half'
     }
     let request = new Request(url, opts)
-    if(!request.formData)
-        request.formData = () => piccolo(headers, request.body)
 
     // fetch event
     let fetchEvent = {

@@ -1,4 +1,3 @@
-let {fetch, FormData, Headers} = require('./runtime')
 let {buffer, stream} = require('./lib/util')
 let emu = require('./index')
 let {watchdog, api} = emu
@@ -212,11 +211,6 @@ describe('index', () => {
             form.set('main', 'addEventListener("fetch", ev => ev.respondWith(new Response(response)))')
 
             let opts = {headers: {authorization: 'Bearer tok'}, method: 'PUT', body: form}
-            if(form.getBoundary) {
-                opts.headers['content-type'] = `multipart/form-data; boundary='${form.getBoundary()}'`
-                opts.body = await buffer.consume(form)
-            }
-
             let res = await fetch(`http://localhost:${API_PORT}`, opts)
             assert.include(await res.text(), 'deployed')
             res = await fetch(`http://localhost:${port}`)
