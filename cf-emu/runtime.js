@@ -69,12 +69,16 @@ Promise.allSettled = Promise.allSettled || node_10().Promise_allSettled
 
 
 // https://developers.cloudflare.com/workers/reference/apis/web-crypto/
-let {randomFillSync, createHash} = require('crypto')
-exports.crypto = {
-    getRandomValues: randomFillSync,
-    subtle: Object.assign(require('subtle'), {
-        digest: (algo, str) => createHash(algo.replace('-', '')).update(str).digest()
-    })
+if(global.crypto.subtle && global.crypto.getRandomValues) {
+    exports.crypto = global.crypto
+} else {
+    let {createHash, randomFillSync} = require('crypto')
+    exports.crypto = {
+        getRandomValues: randomFillSync,
+        subtle: Object.assign(require('subtle'), {
+            digest: (algo, str) => createHash(algo.replace('-', '')).update(str).digest()
+        })
+    }
 }
 
 // https://developers.cloudflare.com/workers/reference/apis/cache/

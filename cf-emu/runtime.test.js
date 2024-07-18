@@ -110,7 +110,6 @@ describe('runtime', () => {
     assert.isFunction(g.TextDecoder)
 
     // crypto
-    it('crypto', () => assert.isObject(g.crypto))
     describe('crypto', () => {
         it('getRandomValues', () => {
             assert.isFunction(g.crypto.getRandomValues)
@@ -118,13 +117,27 @@ describe('runtime', () => {
             g.crypto.getRandomValues(foo)
             assert(foo.some(x => x > 0))
         })
-        it('subtle', () => assert.isObject(g.crypto.subtle))
+        it('subtle', () => {
+            assert.isFunction(g.crypto.subtle.encrypt)
+            assert.isFunction(g.crypto.subtle.encrypt)
+            assert.isFunction(g.crypto.subtle.decrypt)
+            assert.isFunction(g.crypto.subtle.sign)
+            assert.isFunction(g.crypto.subtle.verify)
+            assert.isFunction(g.crypto.subtle.digest)
+            assert.isFunction(g.crypto.subtle.generateKey)
+            assert.isFunction(g.crypto.subtle.deriveKey)
+            assert.isFunction(g.crypto.subtle.deriveBits)
+            assert.isFunction(g.crypto.subtle.importKey)
+            assert.isFunction(g.crypto.subtle.exportKey)
+            assert.isFunction(g.crypto.subtle.wrapKey)
+            assert.isFunction(g.crypto.subtle.unwrapKey)
+        })
         it('subtle.digest', async () => {
             assert.isFunction(g.crypto.subtle.digest)
             let hash = await g.crypto.subtle.digest('SHA-256',
                 new g.TextEncoder().encode('hello world')
             )
-            assert.equal(hash[0], 185)
+            assert.equal(new Uint8Array(hash)[0], 185)
         })
     })
 
