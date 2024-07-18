@@ -30,7 +30,7 @@ jobs:
     - run: npm run cover
     - uses: actions/upload-artifact@v4
       with:
-        name: coverage
+        name: coverage-${{ matrix.node }}
         path: .nyc_output/
   coverage:
     needs:
@@ -53,7 +53,8 @@ jobs:
     - run: git clone --branch=gh-pages --depth=1 "https://za-creature:${{ github.token }}@github.com/${{ github.repository }}.git" coverage/
     - uses: actions/download-artifact@v4
       with:
-        name: coverage
+        pattern: coverage-*
+        merge-multiple: true
         path: .nyc_output/
     # publish report
     - run: npm run lint
