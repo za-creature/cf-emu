@@ -1,6 +1,7 @@
 let {buffer} = require('./util')
 
 let busboy = require('busboy')
+let File = global.File || require('node:buffer').File
 
 
 // parses a multpart body that contains the worker and bindings; input should
@@ -61,7 +62,7 @@ exports.parse = async function parse(form, out_bindings) {
                     throw new Error(`invalid request: part '${body_part}'` +
                                     ` referenced by ${debug} not present`)
                 value = form.get(binding.part)
-                if(value instanceof Blob)
+                if(typeof value.text == 'function')
                     value = await value.text()
             }
         } else
@@ -69,7 +70,7 @@ exports.parse = async function parse(form, out_bindings) {
         out_bindings[binding.name] = value
     }
     let body = form.get(body_part)
-    if(body instanceof Blob)
+    if(typeof body.text == 'function')
         body = await body.text()
     return body
 }

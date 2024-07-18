@@ -13,6 +13,9 @@ exports.self = exports
     // https://developers.cloudflare.com/workers/reference/apis/web-crypto/
     'crypto',
 ].forEach(key => exports[key] = global[key])
+if(typeof exports.crypto === 'undefined') {
+    exports.crypto = require('node:crypto')
+}
 
 
 // https://developers.cloudflare.com/workers/reference/apis/fetch-event/

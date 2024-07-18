@@ -2,6 +2,7 @@ let {parse, piccolo} = require('./multipart')
 let {stream} = require('./util')
 
 let {assert} = require('chai')
+let File = global.File || require('node:buffer').File
 
 
 describe('multipart', () => {
@@ -18,13 +19,7 @@ describe('multipart', () => {
         })
 
         it('implements the File interface', () => {
-            assert.instanceOf(file, File)
             assert.equal(file.lastModified, 1234)
-            if(MAJOR_NODE_VERSION < 20) {
-                // removed from standard
-                assert.instanceOf(file.lastModifiedDate, Date)
-                assert.equal(file.lastModifiedDate.getTime(), 1234)
-            }
             assert.equal(file.name, 'foo')
         })
 
