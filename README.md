@@ -17,27 +17,26 @@ npm install --save-dev cf-emu
   can be easily bypassed and should not be relied upon
 * `Date.now()` is not throttled
 * `setTimeout()` & co are supported regardless of context
-* `TextDecoder` supports `utf-8`, `utf-16le` and `latin1`, cloudflare only
-  advertises `utf-8`
-* `fetch()` is probably less restricted than cloudflare, though not completely
-  spec compliant [more info](https://github.com/node-fetch/node-fetch/blob/master/docs/v3-LIMITS.md)
-* the `URL` class is following
-  [the spec](https://nodejs.org/api/url.html#url_the_whatwg_url_api), it's
-  unclear what [cloudflare implements](https://developers.cloudflare.com/workers/reference/apis/standard) though I didn't notice any differences
+* [`caches`](https://developers.cloudflare.com/workers/reference/apis/cache/) are
+  memory only and flush upon restart
+* [secret bindings](https://developers.cloudflare.com/workers/reference/apis/environment-variables/)
+  are not persisted across deployments
 * cloudflare headers are added, though the `CF-IPCountry` is always hardcoded
   and `CF-Ray` ends with `-DEV`
 * [streams](https://developers.cloudflare.com/workers/reference/apis/streams/)
   are not implemented
 * [kv bindings](https://developers.cloudflare.com/workers/reference/apis/kv/)
   are not implemented
-* [secret bindings](https://developers.cloudflare.com/workers/reference/apis/environment-variables/)
-  are not persisted across deployments
-* [`crypto`](https://developers.cloudflare.com/workers/reference/apis/web-crypto/)
-  might support different algorithms than cloudflare, depending on how you
-  compiled node.js
-* [`caches`](https://developers.cloudflare.com/workers/reference/apis/cache/) are
-  memory only and flush upon restart
 * [`HTMLRewriter`](https://developers.cloudflare.com/workers/reference/apis/html-rewriter/) is not supported
+* [`TextEncoder`](https://nodejs.org/api/util.html#class-utiltextencoder),
+  [`TextDecoder`](https://nodejs.org/api/util.html#class-utiltextdecoder),
+  [`fetch()`](https://nodejs.org/api/globals.html#fetch) & friends (`URL`,
+  `Request`, `Response`, `Headers`, `FormData`, `File`, `Blob`),
+  [`crypto``](https://nodejs.org/api/webcrypto.html#class-subtlecrypto) and 
+  others are using alternative implementations that are almost certainly not
+  bug-for-bug compatible with cloudflare's; there is sufficient overlap to make
+  this project useful, but more in a WHATWG than a W3C sort of way
+* APIs released in the last 5 years are almost certainly not supported
 
 
 ## Usage
